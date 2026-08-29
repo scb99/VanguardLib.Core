@@ -53,7 +53,7 @@ module ProcessTransactionsPartOfVanguardDataFile =
         
         let parsedTransactionsGroupedByType = 
             fileLines
-            |> Seq.skip 3
+            |> Seq.skip 1
             |> Seq.takeWhile (fun line -> not (String.IsNullOrEmpty(line)))
             |> Seq.map retrieveTransactionFromLine
 

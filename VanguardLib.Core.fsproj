@@ -20,7 +20,6 @@
     <Compile Include="ProcessInvestmentPartOfVanguardDataFile.fs" />   
     <Compile Include="ProcessTransactionPartOfVanguardDataFile.fs" />   
     <Compile Include="PortfolioInitializer.fs" />   
-    <Compile Include="ParseVanguardDataFile.fs" />   
     <Compile Include="HtmlReportLayout.fs" />   
     <Compile Include="HtmlTableBuilder.fs" />   
     <Compile Include="GenerateGenericInvestmentReport.fs" />   
@@ -35,7 +34,8 @@
     <Compile Include="GenerateListOfInterestPayments.fs" />   
     <Compile Include="GenerateListOfSellTransactions.fs" />   
     <Compile Include="GenerateListOfTBillsReport.fs" />   
-    <Compile Include="GenerateDividendTransactionReport.fs" />   
+    <Compile Include="GenerateDividendTransactionsReport.fs" />   
+    <Compile Include="ParseVanguardDataFile.fs" />   
     <Compile Include="Library.fs" />
   </ItemGroup>
 
