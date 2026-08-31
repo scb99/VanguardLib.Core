@@ -14,19 +14,6 @@
     <Compile Include="PortfolioInitializer.fs" />   
     <Compile Include="HtmlReportComponents.fs" />   
     <Compile Include="PortfolioReports,fs.fs" />   
-    <Compile Include="GenerateGenericInvestmentReport.fs" />   
-    <Compile Include="GenerateGenericTransactionReport.fs" />   
-    <Compile Include="GenerateInvestmentReport.fs" />   
-    <Compile Include="GenerateDistributionsReport.fs" />   
-    <Compile Include="GenerateListOfBuyTransactions.fs" />   
-    <Compile Include="GenerateListOfCashReport.fs" />   
-    <Compile Include="GenerateListOfCorpActions.fs" />   
-    <Compile Include="GenerateListOfDividendsReport.fs" />   
-    <Compile Include="GenerateListOfFees.fs" />   
-    <Compile Include="GenerateListOfInterestPayments.fs" />   
-    <Compile Include="GenerateListOfSellTransactions.fs" />   
-    <Compile Include="GenerateListOfTBillsReport.fs" />   
-    <Compile Include="GenerateDividendTransactionsReport.fs" />   
     <Compile Include="ParseVanguardDataFile.fs" />   
     <Compile Include="Library.fs" />
   </ItemGroup>
