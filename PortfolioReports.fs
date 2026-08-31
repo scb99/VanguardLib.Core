@@ -606,4 +606,3 @@ module GenerateListOfDividendsReport =
             headers,
             "Total dividends received"
         )
-

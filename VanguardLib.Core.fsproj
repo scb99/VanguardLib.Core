@@ -5,17 +5,24 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+  </PropertyGroup>
+
   <ItemGroup>  
+    <None Include="MultiClassQueueingNetwork.fsx" />  
     <Compile Include="StringExtensions.fs" />   
-    <None Include="MultiClassQueueingNetwork.fsx" />   
+    <Compile Include="HtmlReportComponents.fs" />   
     <Compile Include="Validatiomn.fs" />   
     <Compile Include="VanguardModels.fs" />   
     <Compile Include="VanguardDataIngestion.fs" />   
     <Compile Include="PortfolioInitializer.fs" />   
-    <Compile Include="HtmlReportComponents.fs" />   
-    <Compile Include="PortfolioReports,fs.fs" />   
-    <Compile Include="ParseVanguardDataFile.fs" />   
-    <Compile Include="Library.fs" />
+    <Compile Include="PortfolioReports.fs" />   
+    <Compile Include="ParseVanguardDataFile.fs" />
   </ItemGroup>
 
 </Project>
