@@ -1,21 +1,22 @@
 ﻿namespace VanguardLib
 
-open System.Collections.Generic
+//open System.Collections.Generic
 
-module GenerateListOfDividendsReport =
+//module GenerateListOfDividendsReport =
 
-    // Module-level private constants matching your original design rules
-    let private reportTitle = "List of Dividends"
-    let private headers = [| "Transaction Type"; "Settlement Date"; "Investment Name"; "Amount" |]
+//    let private reportTitle = "List of Dividends"
+    
+//    // REFINED HEADERS: Removes the redundant "Dividend" label column 
+//    // and adds "Shares" so users can see the asset quantity tracking.
+//    let private headers = [| "Settlement Date"; "Investment Name"; "Shares"; "Amount" |]
 
-    // Public API exposed via standard .NET tuple parameters for seamless C# library interop
-    let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
-        // Pass arguments strictly by position to eliminate the FS0001 tuple error
-        GenerateGenericTransactionReport.Generate(
-            sortedDictionaryOfTransactions,
-            "Dividend",
-            reportTitle,
-            "No dividend transactions found.",
-            headers,
-            "Total dividends received"
-        )
+//    /// Public API exposed via standard .NET parameters for seamless C# library interop
+//    let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
+//        GenerateGenericTransactionReport.Generate(
+//            sortedDictionaryOfTransactions,
+//            "Dividend",
+//            reportTitle,
+//            "No dividend transactions found.",
+//            headers,
+//            "Total dividends received"
+//        )

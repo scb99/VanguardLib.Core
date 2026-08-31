@@ -5,23 +5,15 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!--<Compile Include="StringExtensions.fs" />
-    <Compile Include="Transaction.fs" />
-    <Compile Include="Investment.fs" />
-    <Compile Include="PortfolioInitializer.fs" />
-    <Compile Include="ProcessInvestmentsPartOfVanguardDataFile.fs" />-->   
-    <Compile Include="ToCleanDecimal.fs" />   
+  <ItemGroup>  
+    <Compile Include="StringExtensions.fs" />   
     <None Include="MultiClassQueueingNetwork.fsx" />   
-    <Compile Include="ValidationResult.fs" />   
-    <Compile Include="Validator.fs" />   
-    <Compile Include="Investment.fs" />   
-    <Compile Include="Transaction.fs" />   
-    <Compile Include="ProcessInvestmentPartOfVanguardDataFile.fs" />   
-    <Compile Include="ProcessTransactionPartOfVanguardDataFile.fs" />   
+    <Compile Include="Validatiomn.fs" />   
+    <Compile Include="VanguardModels.fs" />   
+    <Compile Include="VanguardDataIngestion.fs" />   
     <Compile Include="PortfolioInitializer.fs" />   
-    <Compile Include="HtmlReportLayout.fs" />   
-    <Compile Include="HtmlTableBuilder.fs" />   
+    <Compile Include="HtmlReportComponents.fs" />   
+    <Compile Include="PortfolioReports,fs.fs" />   
     <Compile Include="GenerateGenericInvestmentReport.fs" />   
     <Compile Include="GenerateGenericTransactionReport.fs" />   
     <Compile Include="GenerateInvestmentReport.fs" />   

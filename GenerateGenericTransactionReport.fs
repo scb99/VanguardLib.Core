@@ -1,92 +1,103 @@
 ﻿namespace VanguardLib
 
-open System
-open System.Globalization
-open System.Net
-open System.Text
-open System.Collections.Generic
-open System.Linq
-open System.Runtime.InteropServices
+//open System
+//open System.Globalization
+//open System.Net
+//open System.Text
+//open System.Collections.Generic
+//open System.Linq
+//open System.Runtime.InteropServices
+//open VanguardLib.Extensions // Ensures String.cleanWhitespace is available if needed
 
-module GenerateGenericTransactionReport =
+//module GenerateGenericTransactionReport =
 
-    // Private static configuration fields matching your original setup
-    let private reportCulture = CultureInfo("en-US")
-    let private defaultHeaders = [| "Type"; "Settlement Date"; "Investment Name"; "Shares"; "Amount" |]
+//    let private reportCulture = CultureInfo("en-US")
+//    let private defaultHeaders = [| "Type"; "Settlement Date"; "Investment Name"; "Shares"; "Amount" |]
 
-    // Public API using standard .NET tuple arguments and optional attributes for C# interop
-    let Generate (
-        sortedDictionary: SortedDictionary<string, List<Transaction>>,
-        dictionaryKey: string,
-        reportTitle: string,
-        emptyMessage: string,
-        [<Optional; DefaultParameterValue(null: string[])>] headers: string[],
-        [<Optional; DefaultParameterValue(null: string)>] totalRowLabel: string) : string =
+//    /// Public API optimized for high-performance processing and flawless C# consumption
+//    let Generate (
+//        sortedDictionary: SortedDictionary<string, List<Transaction>>,
+//        dictionaryKey: string,
+//        reportTitle: string,
+//        emptyMessage: string,
+//        [<Optional; DefaultParameterValue(null: string[])>] headers: string[],
+//        [<Optional; DefaultParameterValue(null: string)>] totalRowLabel: string) : string =
         
-        if box sortedDictionary = null then
-            HtmlReportLayout.WrapWithTemplate(reportTitle, "<p>No transactions available to generate the report.</p>")
-        else
-            // Safe key lookup matching C# TryGetValue and null-coalescing layout
-            let transactions = 
-                match sortedDictionary.TryGetValue(dictionaryKey) with
-                | true, list when box list <> null -> list
-                | _ -> List<Transaction>()
+//        // 1. High performance typesafe null guard (No boxing)
+//        if isNull sortedDictionary then
+//            HtmlReportLayout.WrapWithTemplate(reportTitle, $"<p>{WebUtility.HtmlEncode(emptyMessage)}</p>")
+//        else
+//            // 2. Safe retrieval tracking
+//            let transactions = 
+//                match sortedDictionary.TryGetValue(dictionaryKey) with
+//                | true, list when not (isNull list) -> list
+//                | _ -> List<Transaction>()
 
-            let activeHeaders = if box headers = null then defaultHeaders else headers
+//            let activeHeaders = if isNull headers then defaultHeaders else headers
 
-            // High-performance HashSet lookup configuration
-            let headerLookup = HashSet<string>(activeHeaders, StringComparer.OrdinalIgnoreCase)
+//            // 3. Fixed Table Alignment Footer Math
+//            let footerHtml = 
+//                if not (String.IsNullOrEmpty(totalRowLabel)) && transactions.Count > 0 then
+//                    let totalSum = transactions.Sum(fun t -> t.NetAmount)
+//                    // Colspan stops exactly 1 column before the final currency amount column
+//                    let colspan = activeHeaders.Length - 1
+//                    $"""
+//                        <tr class="total-row">
+//                          <td colspan="{colspan}">{WebUtility.HtmlEncode(totalRowLabel)}</td>
+//                          <td class="text-right">{totalSum.ToString("C", reportCulture)}</td>
+//                        </tr>
+//                    """
+//                else
+//                    null
 
-            // Calculate footer content conditionally based on presence of totalRowLabel and records
-            let footerHtml = 
-                if not (String.IsNullOrEmpty(totalRowLabel)) && transactions.Count > 0 then
-                    let totalSum = transactions.Sum(fun t -> t.NetAmount)
-                    let colspan = activeHeaders.Length - 1
-                    $"""
-                        <tr class="total-row">
-                          <td colspan="{colspan}">{WebUtility.HtmlEncode(totalRowLabel)}</td>
-                          <td class="text-right">{totalSum.ToString("C", reportCulture)}</td>
-                        </tr>
-                    """
-                else
-                    null
+//            // 4. FIX: Dynamic Order-Aware HTML Rows Engine
+//            // This loops over the actual header elements array sequentially, 
+//            // ensuring the body data columns always align 100% with the layout headers.
+//            let renderer = Func<Transaction, string>(fun tx ->
+//                let row = StringBuilder()
+//                row.Append("    <tr>") |> ignore
 
-            // Explicitly wrapping the row builder engine in a standard .NET Func delegate
-            let renderer = Func<Transaction, string>(fun tx ->
-                let row = StringBuilder()
-                row.Append("    <tr>") |> ignore
+//                for header in activeHeaders do
+//                    match header.Trim() with
 
-                if headerLookup.Contains("Transaction Type") || headerLookup.Contains("Type") then
-                    row.Append($"<td>{WebUtility.HtmlEncode(tx.TransactionType)}</td>") |> ignore
+//                    | h when h.Equals("Type", StringComparison.OrdinalIgnoreCase) || 
+//                             h.Equals("Transaction Type", StringComparison.OrdinalIgnoreCase) ->
+//                        row.Append($"<td>{WebUtility.HtmlEncode(tx.TransactionType)}</td>") |> ignore
+                        
+//                    | h when h.Equals("Settlement Date", StringComparison.OrdinalIgnoreCase) ->
+//                        let dateStr = tx.SettlementDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+//                        row.Append($"<td>{dateStr}</td>") |> ignore
+                        
+//                    | h when h.Equals("Investment Name", StringComparison.OrdinalIgnoreCase) ->
+//                        // Clean whitespace errors using your brand-new utility extension!
+//                        let rawName = if isNull tx.InvestmentName then "N/A" else tx.InvestmentName
+//                        let cleanName = String.cleanWhitespace rawName
+//                        row.Append($"<td>{WebUtility.HtmlEncode(cleanName)}</td>") |> ignore
+                        
+//                    | h when h.Equals("Shares", StringComparison.OrdinalIgnoreCase) ->
+//                        let formattedShares = tx.Shares.ToString("N4", reportCulture)
+//                        row.Append($"<td class=\"text-right\">{formattedShares}</td>") |> ignore
+                        
+//                    | h when h.Equals("Amount", StringComparison.OrdinalIgnoreCase) ->
+//                        let formattedAmount = tx.NetAmount.ToString("C", reportCulture)
+//                        row.Append($"<td class=\"text-right\">{formattedAmount}</td>") |> ignore
+                        
+//                    | unknownHeader ->
+//                        // Defensive catch-all to prevent table row collapsing on unexpected column injections
+//                        row.Append($"<td><!-- Unknown Column: {WebUtility.HtmlEncode(unknownHeader)} --></td>") |> ignore
 
-                if headerLookup.Contains("Settlement Date") then
-                    let dateStr = tx.SettlementDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-                    row.Append($"<td>{dateStr}</td>") |> ignore
+//                row.Append("</tr>\n") |> ignore
+//                row.ToString()
+//            )
 
-                if headerLookup.Contains("Investment Name") then
-                    let name = if isNull tx.InvestmentName then "N/A" else tx.InvestmentName
-                    row.Append($"<td>{WebUtility.HtmlEncode(name)}</td>") |> ignore
+//            // 5. Invoke structural layout output engine
+//            let tableContent = 
+//                HtmlTableBuilder.BuildTable<Transaction>(
+//                    transactions,
+//                    activeHeaders,
+//                    renderer,
+//                    emptyMessage,
+//                    footerHtml
+//                )
 
-                if headerLookup.Contains("Shares") then
-                    let formattedShares = tx.Shares.ToString("N4", reportCulture)
-                    row.Append($"<td class=\"text-right\">{formattedShares}</td>") |> ignore
-
-                if headerLookup.Contains("Amount") then
-                    let formattedAmount = tx.NetAmount.ToString("C", reportCulture)
-                    row.Append($"<td class=\"text-right\">{formattedAmount}</td>") |> ignore
-
-                row.Append("</tr>\n") |> ignore
-                row.ToString()
-            )
-
-            // Invoke the table builder cleanly using the required explicit tuple structure
-            let tableContent = 
-                HtmlTableBuilder.BuildTable<Transaction>(
-                    transactions,
-                    activeHeaders,
-                    renderer,
-                    emptyMessage,
-                    footerHtml
-                )
-
-            HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)
+//            HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)

@@ -68,15 +68,16 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
         let transactionsHeaderIdx = 
             rawLines |> Array.tryFindIndex (fun line -> line.StartsWith("Account Number,Trade Date"))
 
-        // Safely extract all rows sitting between the two structural headers
+        // Safely extract rows starting WITH the investment header down to the transaction block
         let investmentLines =
             match investmentsHeaderIdx, transactionsHeaderIdx with
             | Some startIdx, Some endIdx when endIdx > startIdx ->
-                // Skip the header itself, and take everything up to the next section header
+                // Start right at the investment header row index
+                // The total count of lines including the header is (endIdx - startIdx)
                 let count = endIdx - startIdx
                 rawLines |> Array.skip startIdx |> Array.take count
             | Some startIdx, _ ->
-                // Fallback: If no transaction header exists, take everything from investment header to end
+                // Fallback: If no transaction header exists, take everything from the investment header to the end
                 rawLines |> Array.skip startIdx
             | _ -> 
                 // Ultimate Fallback: Pass all lines if structural tracking fails

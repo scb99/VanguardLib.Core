@@ -1,21 +1,22 @@
 ﻿namespace VanguardLib
 
-open System.Collections.Generic
+//open System.Collections.Generic
 
-module GenerateListOfFees =
+//module GenerateListOfFees =
 
-    // Module-level private constants matching your original design rules
-    let private reportTitle = "List of Fees"
-    let private headers = [| "Transaction Type"; "Settlement Date"; "Investment Name"; "Amount" |]
+//    let private reportTitle = "List of Fees"
+    
+//    // REFINED HEADERS: Removes the redundant "Fee" column label 
+//    // and adds the Symbol for quicker scanability.
+//    let private headers = [| "Settlement Date"; "Investment Name"; "Symbol"; "Amount" |]
 
-    // Public API exposed via standard .NET tuple parameters for seamless C# library interop
-    let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
-        // Pass arguments strictly by position to eliminate the FS0001 tuple error
-        GenerateGenericTransactionReport.Generate(
-            sortedDictionaryOfTransactions,
-            "Fee",
-            reportTitle,
-            "No fee transactions found.",
-            headers,
-            "Total fees paid"
-        )
+//    /// Public API exposed via standard .NET parameters for seamless C# library interop
+//    let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
+//        GenerateGenericTransactionReport.Generate(
+//            sortedDictionaryOfTransactions,
+//            "Fee",
+//            reportTitle,
+//            "No fee transactions found.",
+//            headers,
+//            "Total fees paid"
+//        )
