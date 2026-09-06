@@ -99,6 +99,77 @@ module GenerateGenericInvestmentReport =
 
             HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)
 
+module GenerateGenericInvestReportF =
+
+    let private reportCulture = CultureInfo("en-US")
+
+    /// Generates a standardized portfolio report from an idiomatic F# Map of assets
+    let Generate (
+        investmentsMap: Map<string, Investment>,
+        headers: string[],
+        reportTitle: string,
+        emptyMessage: string) : string =
+    
+        // 1. Guard check handling using Map.isEmpty
+        if Map.isEmpty investmentsMap then
+            let safeEmptyMessage = WebUtility.HtmlEncode(emptyMessage)
+            HtmlReportLayout.WrapWithTemplate(reportTitle, $"<p>{safeEmptyMessage}</p>")
+        else
+            // 2. Idiomatic Row Builder Engine using a clean pattern-matching function
+            let renderRow (key: string, investment: Investment) =
+                let row = StringBuilder()
+                row.Append("<tr>") |> ignore
+
+                // Iterate through the actual layout headers sequentially
+                for header in headers do
+                    match header.Trim() with
+                
+                    | h when String.Equals(h, "Total Value", StringComparison.OrdinalIgnoreCase) ||
+                             String.Equals(h, "Value", StringComparison.OrdinalIgnoreCase) ||
+                             String.Equals(h, "Amount", StringComparison.OrdinalIgnoreCase) ->
+                        let formattedValue = investment.TotalValue.ToString("C", reportCulture)
+                        row.Append($"<td class=\"text-right\">{formattedValue}</td>") |> ignore
+
+                    | h when String.Equals(h, "Shares", StringComparison.OrdinalIgnoreCase) ||
+                             String.Equals(h, "Share Count", StringComparison.OrdinalIgnoreCase) ->
+                        let formattedShares = investment.Shares.ToString("N4", reportCulture)
+                        row.Append($"<td class=\"text-right\">{formattedShares}</td>") |> ignore
+
+                    | h when String.Equals(h, "Price", StringComparison.OrdinalIgnoreCase) ||
+                             String.Equals(h, "Share Price", StringComparison.OrdinalIgnoreCase) ->
+                        let formattedPrice = investment.SharePrice.ToString("C", reportCulture)
+                        row.Append($"<td class=\"text-right\">{formattedPrice}</td>") |> ignore
+
+                    | h when String.Equals(h, "Account", StringComparison.OrdinalIgnoreCase) ||
+                             String.Equals(h, "Account Number", StringComparison.OrdinalIgnoreCase) ->
+                        row.Append($"<td>{WebUtility.HtmlEncode(investment.AccountNumber)}</td>") |> ignore
+
+                    | _ ->
+                        // Treat as text column descriptor and write the HTML-safe encoded key
+                        let cleanKey = String.cleanWhitespace key
+                        row.Append($"<td>{WebUtility.HtmlEncode(cleanKey)}</td>") |> ignore
+
+                row.Append("</tr>\n") |> ignore
+                row.ToString()
+
+            // 3. Adapt F# Map to your existing HtmlTableBuilder.
+            // F# Maps implement seq<KeyValuePair<'K, 'V>> under the hood, but your renderRow expects a tuple.
+            // We can pass a proxy delegate or convert the map elements.
+            let csharpRenderer = Func<KeyValuePair<string, Investment>, string>(fun kvp -> 
+                renderRow (kvp.Key, kvp.Value)
+            )
+
+            let tableContent = 
+                HtmlTableBuilder.BuildTable<KeyValuePair<string, Investment>>(
+                    investmentsMap, // Map naturally implements the required sequence interface
+                    headers,
+                    csharpRenderer,
+                    emptyMessage,
+                    null
+                )
+
+            HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)
+
 module GenerateGenericTransactionReport =
 
     let private reportCulture = CultureInfo("en-US")
@@ -549,6 +620,22 @@ module GenerateListOfCashReport =
     let GenerateReport (sortedDictionaryOfCash: SortedDictionary<string, Investment>) : string =
         GenerateGenericInvestmentReport.Generate(
             sortedDictionaryOfCash,
+            headers,
+            reportTitle,
+            "No cash records found."
+        )
+
+module GenerateListOfCashReportF =
+
+    let private reportTitle = "List of CashF"
+
+    // Standardized headers for the F# reporting layout engine
+    let private headers = [| "Account / Investment Key"; "Total Value" |]
+
+    /// Public API accepting an idiomatic F# Map instead of a SortedDictionary
+    let GenerateReport (cashMap: Map<string, Investment>) : string =
+        GenerateGenericInvestReportF.Generate(
+            cashMap,
             headers,
             reportTitle,
             "No cash records found."

@@ -22,6 +22,7 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
 
     // --- Private Instance Fields (State) ---
     let cash = SortedDictionary<string, Investment>()
+    let mutable cashF = Map.empty<string, Investment>
     let investmentsBySymbol = SortedDictionary<string, Investment>()
     let investmentsByName = SortedDictionary<string, Investment>()
     let tBills = SortedDictionary<string, Investment>()
@@ -89,10 +90,13 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
             | Some startIdx -> rawLines |> Array.skip startIdx
             | None -> rawLines
 
-        // 4. Run your parsers independently over their clean datasets
+        // 4. Run parsers independently over their clean datasets
         let result = ProcessInvestmentsPartOfVanguardDataFile.ProcessData(investmentLines)
         
         for kvp in result.Cash do cash.Add(kvp.Key, kvp.Value)
+        // Merges all pairs from result.CashF into local cashF variable
+        cashF <- result.CashF |> Map.fold (fun acc key value -> Map.add key value acc) cashF
+
         for kvp in result.TBills do tBills.Add(kvp.Key, kvp.Value)
 
         let processedTransactions = ProcessTransactionsPartOfVanguardDataFile.ProcessData(transactionLines, transactions)
@@ -118,6 +122,7 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
             GenerateDividendTransactionsReport.GenerateReport(processedTransactions, investmentsBySymbol, TransactionsReportConfiguration.BySymbol))
         register "List of T Bills" (fun () -> GenerateListOfTBillsReport.GenerateReport(tBills))
         register "List of Cash" (fun () -> GenerateListOfCashReport.GenerateReport(cash))
+        register "List of CashF" (fun () -> GenerateListOfCashReportF.GenerateReport(cashF))
         register "List of Dividends" (fun () -> GenerateListOfDividendsReport.GenerateReport(processedTransactions))
         register "List of Interest Payments" (fun () -> GenerateListOfInterestPayments.GenerateReport(processedTransactions))
         register "Distributions" (fun () -> GenerateDistributionsReport.GenerateReport(processedTransactions))
@@ -144,6 +149,7 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
         "Dividend Transactions Sorted By Company Symbol"
         "List of T Bills"
         "List of Cash"
+        "List of CashF"
         "List of Dividends"
         "List of Interest Payments"
         "Distributions"

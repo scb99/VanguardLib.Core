@@ -17,6 +17,7 @@
 
   <ItemGroup>  
     <None Include="MultiClassQueueingNetwork.fsx" />  
+    <Compile Include="Extensions.fs" />  
     <Compile Include="StringExtensions.fs" />   
     <Compile Include="HtmlReportComponents.fs" />   
     <Compile Include="Validatiomn.fs" />   
