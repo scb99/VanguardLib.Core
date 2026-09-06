@@ -9,6 +9,7 @@ type VanguardProcessedData = {
     InvestmentsByCompanySymbol : SortedDictionary<string, Investment>
     InvestmentsByCompanyName   : SortedDictionary<string, Investment>
     TBills                     : SortedDictionary<string, Investment>
+    TBillsF                    : Map<string, Investment>
     Cash                       : SortedDictionary<string, Investment>
     CashF                      : Map<string, Investment>
 }
@@ -76,6 +77,14 @@ module ProcessInvestmentsPartOfVanguardDataFile =
                 inv.InvestmentName.Contains("TREASURY", StringComparison.OrdinalIgnoreCase))
             |> toSortedDictionary (fun inv -> inv.InvestmentName) id
 
+        let tBillsF = 
+            investments
+            |> Seq.filter (fun inv -> 
+                inv.Symbol = "NULL" && 
+                inv.InvestmentName.Contains("TREASURY", StringComparison.OrdinalIgnoreCase))
+            |> Seq.toMap (fun inv -> inv.InvestmentName) id
+
+
         let cash = 
             investments
             |> Seq.filter (fun inv -> 
@@ -94,6 +103,7 @@ module ProcessInvestmentsPartOfVanguardDataFile =
             InvestmentsByCompanySymbol = investmentsByCompanySymbol
             InvestmentsByCompanyName   = investmentsByCompanyName
             TBills                     = tBills
+            TBillsF                    = tBillsF
             Cash                       = cash
             CashF                      = cashF
         }

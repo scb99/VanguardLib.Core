@@ -99,7 +99,7 @@ module GenerateGenericInvestmentReport =
 
             HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)
 
-module GenerateGenericInvestReportF =
+module GenerateGenericInvestmentReportF =
 
     let private reportCulture = CultureInfo("en-US")
 
@@ -608,22 +608,22 @@ module GenerateListOfInterestPayments =
             "Total interest payments received"
         )
 
-module GenerateListOfCashReport =
+//module GenerateListOfCashReport =
 
-    let private reportTitle = "List of Cash"
+//    let private reportTitle = "List of Cash"
     
-    // FIX: Standardize headers so GenerateGenericInvestmentReport 
-    // maps them to actual Investment object properties cleanly!
-    let private headers = [| "Account / Investment Key"; "Total Value" |]
+//    // FIX: Standardize headers so GenerateGenericInvestmentReport 
+//    // maps them to actual Investment object properties cleanly!
+//    let private headers = [| "Account / Investment Key"; "Total Value" |]
 
-    /// Public API exposed via standard .NET parameters for seamless C# library interop
-    let GenerateReport (sortedDictionaryOfCash: SortedDictionary<string, Investment>) : string =
-        GenerateGenericInvestmentReport.Generate(
-            sortedDictionaryOfCash,
-            headers,
-            reportTitle,
-            "No cash records found."
-        )
+//    /// Public API exposed via standard .NET parameters for seamless C# library interop
+//    let GenerateReport (sortedDictionaryOfCash: SortedDictionary<string, Investment>) : string =
+//        GenerateGenericInvestmentReport.Generate(
+//            sortedDictionaryOfCash,
+//            headers,
+//            reportTitle,
+//            "No cash records found."
+//        )
 
 module GenerateListOfCashReportF =
 
@@ -634,29 +634,47 @@ module GenerateListOfCashReportF =
 
     /// Public API accepting an idiomatic F# Map instead of a SortedDictionary
     let GenerateReport (cashMap: Map<string, Investment>) : string =
-        GenerateGenericInvestReportF.Generate(
+        GenerateGenericInvestmentReportF.Generate(
             cashMap,
             headers,
             reportTitle,
             "No cash records found."
         )
 
-module GenerateListOfTBillsReport =
+//module GenerateListOfTBillsReport =
 
-    let private reportTitle = "List of TBills"
+//    let private reportTitle = "List of TBills"
+    
+//    // FIX: Standardize headers so GenerateGenericInvestmentReport 
+//    // maps them to actual Investment object properties cleanly!
+//    let private headers = [| "T-Bill Key / Description"; "Total Value" |]
+
+//    /// Public API exposed via standard .NET parameters for seamless C# library interop
+//    let GenerateReport (sortedDictionaryOfTBills: SortedDictionary<string, Investment>) : string =
+//        GenerateGenericInvestmentReport.Generate(
+//            sortedDictionaryOfTBills,
+//            headers,
+//            reportTitle,
+//            "No T-Bill records found."
+//        )
+
+module GenerateListOfTBillsReportF =
+
+    let private reportTitle = "List of TBillsF"
     
     // FIX: Standardize headers so GenerateGenericInvestmentReport 
     // maps them to actual Investment object properties cleanly!
     let private headers = [| "T-Bill Key / Description"; "Total Value" |]
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
-    let GenerateReport (sortedDictionaryOfTBills: SortedDictionary<string, Investment>) : string =
-        GenerateGenericInvestmentReport.Generate(
-            sortedDictionaryOfTBills,
+    let GenerateReport (tBillsMap: Map<string, Investment>) : string =
+        GenerateGenericInvestmentReportF.Generate(
+            tBillsMap,
             headers,
             reportTitle,
             "No T-Bill records found."
         )
+
 
 module GenerateListOfCorpActions =
 

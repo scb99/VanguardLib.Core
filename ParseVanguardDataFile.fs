@@ -4,13 +4,12 @@ open System
 open System.IO
 open System.Text
 open System.Collections.Generic
-open System.Collections.ObjectModel
 
 type ParseVanguardDataFile(streamReader: StreamReader) =
 
     // --- Private Static/Constant Fields ---
     static let transactionTypes = 
-        ReadOnlyCollection<string>([|
+        set [
             "Buy"
             "Corp Action (Redemption)"
             "Distribution"
@@ -18,14 +17,13 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
             "Fee"
             "Interest"
             "Sell"
-        |])
+        ]
 
     // --- Private Instance Fields (State) ---
-    let cash = SortedDictionary<string, Investment>()
     let mutable cashF = Map.empty<string, Investment>
     let investmentsBySymbol = SortedDictionary<string, Investment>()
     let investmentsByName = SortedDictionary<string, Investment>()
-    let tBills = SortedDictionary<string, Investment>()
+    let mutable tBillsF = Map.empty<string, Investment>
     let transactions = SortedDictionary<string, List<Transaction>>()
     let reportGenerators = Dictionary<string, Func<string>>()
 
@@ -93,11 +91,11 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
         // 4. Run parsers independently over their clean datasets
         let result = ProcessInvestmentsPartOfVanguardDataFile.ProcessData(investmentLines)
         
-        for kvp in result.Cash do cash.Add(kvp.Key, kvp.Value)
         // Merges all pairs from result.CashF into local cashF variable
-        cashF <- result.CashF |> Map.fold (fun acc key value -> Map.add key value acc) cashF
+        cashF <- result.CashF // |> Map.fold (fun acc key value -> Map.add key value acc) cashF
 
-        for kvp in result.TBills do tBills.Add(kvp.Key, kvp.Value)
+        // Merges all pairs from result.TBillsF into local tBillsF variable
+        tBillsF <- result.TBillsF // |> Map.fold (fun acc key value -> Map.add key value acc) tBillsF
 
         let processedTransactions = ProcessTransactionsPartOfVanguardDataFile.ProcessData(transactionLines, transactions)
 
@@ -120,8 +118,9 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
             GenerateDividendTransactionsReport.GenerateReport(processedTransactions, investmentsByName, TransactionsReportConfiguration.ByName))
         register "Dividend Transactions Sorted By Company Symbol" (fun () -> 
             GenerateDividendTransactionsReport.GenerateReport(processedTransactions, investmentsBySymbol, TransactionsReportConfiguration.BySymbol))
-        register "List of T Bills" (fun () -> GenerateListOfTBillsReport.GenerateReport(tBills))
-        register "List of Cash" (fun () -> GenerateListOfCashReport.GenerateReport(cash))
+        //register "List of T Bills" (fun () -> GenerateListOfTBillsReport.GenerateReport(tBills))
+        register "List of T BillsF" (fun () -> GenerateListOfTBillsReportF.GenerateReport(tBillsF))
+        //register "List of Cash" (fun () -> GenerateListOfCashReport.GenerateReport(cash))
         register "List of CashF" (fun () -> GenerateListOfCashReportF.GenerateReport(cashF))
         register "List of Dividends" (fun () -> GenerateListOfDividendsReport.GenerateReport(processedTransactions))
         register "List of Interest Payments" (fun () -> GenerateListOfInterestPayments.GenerateReport(processedTransactions))
@@ -134,10 +133,10 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
         register "All Reports" generateAllReports
 
     // --- Public Properties (Exposed to C#) ---
-    member _.Cash = cash
+    //member _.Cash = cash
     member _.InvestmentsBySymbol = investmentsBySymbol
     member _.InvestmentsByName = investmentsByName
-    member _.TBills = tBills
+    //member _.TBills = tBills
     member _.Transactions = transactions
 
     // --- Public Methods (Exposed to C#) ---
@@ -147,8 +146,9 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
         "Investments Sorted By Company Symbol"
         "Dividend Transactions Sorted By Company Name"
         "Dividend Transactions Sorted By Company Symbol"
-        "List of T Bills"
-        "List of Cash"
+        //"List of T Bills"
+        "List of T BillsF"
+        //"List of Cash"
         "List of CashF"
         "List of Dividends"
         "List of Interest Payments"
