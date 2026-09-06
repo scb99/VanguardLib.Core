@@ -84,7 +84,6 @@ module ProcessInvestmentsPartOfVanguardDataFile =
                 inv.InvestmentName.Contains("TREASURY", StringComparison.OrdinalIgnoreCase))
             |> Seq.toMap (fun inv -> inv.InvestmentName) id
 
-
         let cash = 
             investments
             |> Seq.filter (fun inv -> 
@@ -107,7 +106,7 @@ module ProcessInvestmentsPartOfVanguardDataFile =
             Cash                       = cash
             CashF                      = cashF
         }
-
+        
 module ProcessTransactionsPartOfVanguardDataFile =
 
     /// Safely parses an individual line. Returns None if data is corrupt or sized wrong.
