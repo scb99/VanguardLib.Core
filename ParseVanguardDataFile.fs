@@ -5,37 +5,75 @@ open System.IO
 open System.Text
 open System.Collections.Generic
 
+type TransactionType =
+    | Buy
+    | CorpActionRedemption
+    | Distribution
+    | Dividend
+    | Fee
+    | Interest
+    | Sell
+
+    /// Returns the human-readable string for the UI
+    member this.DisplayText =
+        match this with
+        | Buy -> "Buy"
+        | CorpActionRedemption -> "Corp Action (Redemption)"
+        | Distribution -> "Distribution"
+        | Dividend -> "Dividend"
+        | Fee -> "Fee"
+        | Interest -> "Interest"
+        | Sell -> "Sell"
+
+    static member All = 
+        [ Buy; CorpActionRedemption; Distribution; Dividend; Fee; Interest; Sell ]
+
+type SlicedFile = {
+    InvestmentLines: string[]
+    TransactionLines: string[]
+} with
+    /// Factory method to slice raw CSV lines into structured blocks
+    static member FromRawLines(rawLines: string[]) =
+        let investmentsHeaderIdx = 
+            rawLines |> Array.tryFindIndex (fun line -> line.StartsWith("Account Number,Investment Name"))
+            
+        let transactionsHeaderIdx = 
+            rawLines |> Array.tryFindIndex (fun line -> line.StartsWith("Account Number,Trade Date"))
+
+        let investmentLines =
+            match investmentsHeaderIdx, transactionsHeaderIdx with
+            | Some startIdx, Some endIdx when endIdx > startIdx ->
+                let count = endIdx - startIdx
+                rawLines |> Array.skip startIdx |> Array.take count
+            | Some startIdx, _ ->
+                rawLines |> Array.skip startIdx
+            | _ -> 
+                rawLines
+
+        let transactionLines =
+            match transactionsHeaderIdx with
+
+            | Some startIdx -> rawLines |> Array.skip startIdx
+            | None -> rawLines
+
+        // Return the instantiated record
+        { InvestmentLines = investmentLines; TransactionLines = transactionLines }
+
 type ParseVanguardDataFile(streamReader: StreamReader) =
-
-    // --- Private Static/Constant Fields ---
-    static let transactionTypes = 
-        set [
-            "Buy"
-            "Corp Action (Redemption)"
-            "Distribution"
-            "Dividend"
-            "Fee"
-            "Interest"
-            "Sell"
-        ]
-
     // --- Private Instance Fields (State) ---
-    let mutable cashF = Map.empty<string, Investment>
     let investmentsBySymbol = SortedDictionary<string, Investment>()
     let investmentsByName = SortedDictionary<string, Investment>()
-    let mutable tBillsF = Map.empty<string, Investment>
     let transactions = SortedDictionary<string, List<Transaction>>()
     let reportGenerators = Dictionary<string, Func<string>>()
 
     // --- Private Helper Functions ---
     // Reads all non-empty lines out of the reader immediately into memory
     let readAllLines (reader: StreamReader) =
-        [|
-            while not reader.EndOfStream do
-                let line = reader.ReadLine()
-                if not (String.IsNullOrWhiteSpace line) then 
-                    yield line.Trim()
-        |]
+        Seq.initInfinite (fun _ -> reader.ReadLine())
+        |> Seq.takeWhile (isNull >> not)
+        |> Seq.filter (String.IsNullOrWhiteSpace >> not)
+        |> Seq.map (fun line -> line.Trim())
+        |> Seq.toArray
 
     let generateAllReports () =
         let sb = StringBuilder()
@@ -51,57 +89,25 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
     do
         if isNull streamReader then nullArg (nameof streamReader)
 
-        // 1. Initialize structural transactions categories
-        for tType in transactionTypes do
-            transactions.TryAdd(tType, List<Transaction>()) |> ignore
+        // 1. Initialize transaction categories
+        for tType in TransactionType.All do
+            transactions.TryAdd(tType.DisplayText, List<Transaction>()) |> ignore
 
         // 2. Read every raw line into memory upfront safely
         let rawLines = readAllLines streamReader
 
-        // --- SEGMENT SLICING LOGIC ---
-        
-        // Find the absolute 0-based index locations of both header rows
-        let investmentsHeaderIdx = 
-            rawLines |> Array.tryFindIndex (fun line -> line.StartsWith("Account Number,Investment Name"))
-            
-        let transactionsHeaderIdx = 
-            rawLines |> Array.tryFindIndex (fun line -> line.StartsWith("Account Number,Trade Date"))
-
-        // Safely extract rows starting WITH the investment header down to the transaction block
-        let investmentLines =
-            match investmentsHeaderIdx, transactionsHeaderIdx with
-            | Some startIdx, Some endIdx when endIdx > startIdx ->
-                // Start right at the investment header row index
-                // The total count of lines including the header is (endIdx - startIdx)
-                let count = endIdx - startIdx
-                rawLines |> Array.skip startIdx |> Array.take count
-            | Some startIdx, _ ->
-                // Fallback: If no transaction header exists, take everything from the investment header to the end
-                rawLines |> Array.skip startIdx
-            | _ -> 
-                // Ultimate Fallback: Pass all lines if structural tracking fails
-                rawLines
-
-        // Extract transaction rows starting from the transaction header down to the end of the file
-        let transactionLines =
-            match transactionsHeaderIdx with
-            | Some startIdx -> rawLines |> Array.skip startIdx
-            | None -> rawLines
+        // 3. Slice the raw lines into structured blocks for independent parsing
+        let fileData = SlicedFile.FromRawLines(rawLines)
+        let investmentLines = fileData.InvestmentLines
+        let transactionLines = fileData.TransactionLines
 
         // 4. Run parsers independently over their clean datasets
-        let result = ProcessInvestmentsPartOfVanguardDataFile.ProcessData(investmentLines)
-        
-        // Merges all pairs from result.CashF into local cashF variable
-        cashF <- result.CashF // |> Map.fold (fun acc key value -> Map.add key value acc) cashF
-
-        // Merges all pairs from result.TBillsF into local tBillsF variable
-        tBillsF <- result.TBillsF // |> Map.fold (fun acc key value -> Map.add key value acc) tBillsF
-
+        let processedInvestments = ProcessInvestmentsPartOfVanguardDataFile.ProcessData(investmentLines)
         let processedTransactions = ProcessTransactionsPartOfVanguardDataFile.ProcessData(transactionLines, transactions)
 
         // 5. Hydrate standard cross-referenced portfolio states
-        let hydratedByName = PortfolioInitializer.BuildInvestmentsByName(result.InvestmentsByCompanyName, processedTransactions)
-        let hydratedBySymbol = PortfolioInitializer.BuildInvestmentsBySymbol(result.InvestmentsByCompanySymbol, processedTransactions)
+        let hydratedByName = PortfolioInitializer.BuildInvestmentsByName(processedInvestments.InvestmentsByCompanyName, processedTransactions)
+        let hydratedBySymbol = PortfolioInitializer.BuildInvestmentsBySymbol(processedInvestments.InvestmentsByCompanySymbol, processedTransactions)
 
         for kvp in hydratedByName do investmentsByName.Add(kvp.Key, kvp.Value)
         for kvp in hydratedBySymbol do investmentsBySymbol.Add(kvp.Key, kvp.Value)
@@ -118,10 +124,8 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
             GenerateDividendTransactionsReport.GenerateReport(processedTransactions, investmentsByName, TransactionsReportConfiguration.ByName))
         register "Dividend Transactions Sorted By Company Symbol" (fun () -> 
             GenerateDividendTransactionsReport.GenerateReport(processedTransactions, investmentsBySymbol, TransactionsReportConfiguration.BySymbol))
-        //register "List of T Bills" (fun () -> GenerateListOfTBillsReport.GenerateReport(tBills))
-        register "List of T BillsF" (fun () -> GenerateListOfTBillsReportF.GenerateReport(tBillsF))
-        //register "List of Cash" (fun () -> GenerateListOfCashReport.GenerateReport(cash))
-        register "List of CashF" (fun () -> GenerateListOfCashReportF.GenerateReport(cashF))
+        register "List of T BillsF" (fun () -> GenerateListOfTBillsReportF.GenerateReport(processedInvestments.TBillsF))
+        register "List of CashF" (fun () -> GenerateListOfCashReportF.GenerateReport(processedInvestments.CashF))
         register "List of Dividends" (fun () -> GenerateListOfDividendsReport.GenerateReport(processedTransactions))
         register "List of Interest Payments" (fun () -> GenerateListOfInterestPayments.GenerateReport(processedTransactions))
         register "Distributions" (fun () -> GenerateDistributionsReport.GenerateReport(processedTransactions))
@@ -133,10 +137,8 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
         register "All Reports" generateAllReports
 
     // --- Public Properties (Exposed to C#) ---
-    //member _.Cash = cash
     member _.InvestmentsBySymbol = investmentsBySymbol
     member _.InvestmentsByName = investmentsByName
-    //member _.TBills = tBills
     member _.Transactions = transactions
 
     // --- Public Methods (Exposed to C#) ---
@@ -146,9 +148,7 @@ type ParseVanguardDataFile(streamReader: StreamReader) =
         "Investments Sorted By Company Symbol"
         "Dividend Transactions Sorted By Company Name"
         "Dividend Transactions Sorted By Company Symbol"
-        //"List of T Bills"
         "List of T BillsF"
-        //"List of Cash"
         "List of CashF"
         "List of Dividends"
         "List of Interest Payments"
