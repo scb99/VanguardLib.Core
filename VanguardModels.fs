@@ -85,7 +85,7 @@ type Transaction =
     ) : ValidationResult<Transaction> =
         
         // 1. Define the success target factory constructor with map transformations
-        let createTransaction acc tDate sDate tType tDesc iName (sym : string) sh pr princ comm net int' accType =
+        let createTransaction acc tDate sDate tType tDesc iName (sym : string) sh pr princ comm net interestAmount accType =
             { AccountNumber = acc
               TradeDate = tDate
               SettlementDate = sDate
@@ -98,7 +98,7 @@ type Transaction =
               PrincipalAmount = princ
               CommissionAndFees = comm
               NetAmount = net
-              AccruedInterest = int'
+              AccruedInterest = interestAmount
               AccountType = accType }
 
         // 2. Prepare transformations and run individual rules in isolation
