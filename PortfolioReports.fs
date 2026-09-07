@@ -44,7 +44,7 @@ module GenerateGenericInvestmentReport =
         // 1. Guard check handling: Explicitly intercept and encode emptyMessage to pass Scenario A
         if isNull sortedDictionary || sortedDictionary.Count = 0 then
             let safeEmptyMessage = WebUtility.HtmlEncode(emptyMessage)
-            HtmlReportLayout.WrapWithTemplate(reportTitle, $"<p>{safeEmptyMessage}</p>")
+            HtmlReportLayout.wrapWithTemplate reportTitle $"<p>{safeEmptyMessage}</p>"
         else
             // 2. Order-Aware Row Builder Engine
             let renderer = Func<KeyValuePair<string, Investment>, string>(fun pair ->
@@ -97,7 +97,7 @@ module GenerateGenericInvestmentReport =
                     null
                 )
 
-            HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)
+            HtmlReportLayout.wrapWithTemplate reportTitle tableContent
 
 module GenerateGenericInvestmentReportF =
 
@@ -113,7 +113,7 @@ module GenerateGenericInvestmentReportF =
         // 1. Guard check handling using Map.isEmpty
         if Map.isEmpty investmentsMap then
             let safeEmptyMessage = WebUtility.HtmlEncode(emptyMessage)
-            HtmlReportLayout.WrapWithTemplate(reportTitle, $"<p>{safeEmptyMessage}</p>")
+            HtmlReportLayout.wrapWithTemplate reportTitle $"<p>{safeEmptyMessage}</p>"
         else
             // 2. Idiomatic Row Builder Engine using a clean pattern-matching function
             let renderRow (key: string, investment: Investment) =
@@ -168,7 +168,7 @@ module GenerateGenericInvestmentReportF =
                     null
                 )
 
-            HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)
+            HtmlReportLayout.wrapWithTemplate reportTitle tableContent
 
 module GenerateGenericTransactionReport =
 
@@ -186,7 +186,7 @@ module GenerateGenericTransactionReport =
         
         // 1. High performance typesafe null guard (No boxing)
         if isNull sortedDictionary then
-            HtmlReportLayout.WrapWithTemplate(reportTitle, $"<p>{WebUtility.HtmlEncode(emptyMessage)}</p>")
+            HtmlReportLayout.wrapWithTemplate reportTitle $"<p>{WebUtility.HtmlEncode(emptyMessage)}</p>"
         else
             // 2. Safe retrieval tracking
             let transactions = 
@@ -261,7 +261,7 @@ module GenerateGenericTransactionReport =
                     footerHtml
                 )
 
-            HtmlReportLayout.WrapWithTemplate(reportTitle, tableContent)
+            HtmlReportLayout.wrapWithTemplate reportTitle tableContent
 
 // ==========================================
 // 3. Specialized Report Wrapper Modules
@@ -281,7 +281,7 @@ module GenerateInvestmentsReport =
 
         // 1. High-performance typesafe null/empty check (No boxing overhead)
         if isNull sortedInvestments || sortedInvestments.Count = 0 then
-            HtmlReportLayout.WrapWithTemplate(title, "<p>No investments available to generate the report.</p>")
+            HtmlReportLayout.wrapWithTemplate title "<p>No investments available to generate the report.</p>"
         else
             let sumOfInvestments = sortedInvestments.Values.Sum(fun inv -> inv.TotalValue)
             
@@ -348,7 +348,7 @@ module GenerateInvestmentsReport =
                     footerHtml
                 )
 
-            HtmlReportLayout.WrapWithTemplate(title, tableContent)
+            HtmlReportLayout.wrapWithTemplate title tableContent
 
 module GenerateDividendTransactionsReport =
 
@@ -527,7 +527,7 @@ module GenerateDividendTransactionsReport =
                 sortedDictionaryOfDividendTransactions
                 config
 
-        HtmlReportLayout.WrapWithTemplate(config.Title, reportBody)
+        HtmlReportLayout.wrapWithTemplate config.Title reportBody
 
 module GenerateDistributionsReport =
 

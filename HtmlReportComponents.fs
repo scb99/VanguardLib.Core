@@ -8,15 +8,11 @@ open System.Text.Encodings.Web
 
 module HtmlReportLayout =
 
-    /// <summary>
     /// Wraps report body fragments into a cohesive, styled HTML sheet or card.
-    /// </summary>
-    let WrapWithTemplate (title: string, bodyContent: string) : string =
+    let wrapWithTemplate (title: string) (bodyContent: string) : string =
         
-        // 1. Safe XSS handling for title
         let encodedTitle = HtmlEncoder.Default.Encode(title)
 
-        // 2. Pure raw string literal for CSS styles (No early closing tag)
         let cssStyles = """
             <style>
               .vanguard-report-container { font-family: Arial, sans-serif; margin: 20px; color: #333333; }
@@ -31,7 +27,6 @@ module HtmlReportLayout =
             </style>
             """
 
-        // 3. Structured assembly keeping all dynamic body elements inside the shell
         $"""
         <div class="vanguard-report-container">
             {cssStyles}
@@ -51,7 +46,7 @@ module HtmlTableBuilder =
         if String.IsNullOrWhiteSpace header then false
         else
             let cleanHeader = header.Trim().ToLowerInvariant()
-            Array.exists (fun (trigger: string) -> cleanHeader.Contains(trigger)) numericColumnTriggers
+            numericColumnTriggers |> Array.exists cleanHeader.Contains
 
     /// Generates a standardized, high-performance HTML table configuration for C# consumption
     let BuildTable<'T> (
@@ -61,23 +56,16 @@ module HtmlTableBuilder =
         emptyMessage: string,
         [<Optional; DefaultParameterValue(null: string)>] footerHtml: string) : string =
         
-        // 1. Defend against null inputs and unpack streams safely without double-allocation
-        let hasElements, enumerator = 
-            match items with
-            | null -> false, null
-            | _ -> 
-                let e = items.GetEnumerator()
-                e.MoveNext(), e
+        // 1. Defend against C# null inputs safely using Option
+        let safeItems = Option.ofObj items |> Option.defaultValue Seq.empty
 
-        if not hasElements then
-            if enumerator <> null then enumerator.Dispose()
+        if Seq.isEmpty safeItems then
             $"<p>{WebUtility.HtmlEncode(emptyMessage)}</p>"
         else
-            use _boundEnumerator = enumerator // Guarantees proper garbage collection disposal
             let html = StringBuilder()
             html.AppendLine("<table class=\"report-table\">") |> ignore
-
-            // 2. Structural Header Rendering Layer
+            
+            // 2. Structural Header Layer
             if not (isNull headers) && headers.Length > 0 then
                 html.AppendLine("  <thead>") |> ignore
                 html.AppendLine("    <tr>") |> ignore
@@ -89,20 +77,19 @@ module HtmlTableBuilder =
                 html.AppendLine("    </tr>") |> ignore
                 html.AppendLine("  </thead>") |> ignore
 
-            // 3. High-Performance Stream-Through Body Rendering Loop
+            // 3. High-Performance Stream-Through Body Layer
             html.AppendLine("  <tbody>") |> ignore
             
-            // Render the first element retrieved during the initial hasElements sizing test
-            html.Append(rowRenderer.Invoke(enumerator.Current)) |> ignore
-            
-            // Loop through all remaining stream nodes cleanly without allocating a separate List intermediate container
-            while enumerator.MoveNext() do
-                html.Append(rowRenderer.Invoke(enumerator.Current)) |> ignore
+            let bodyRows = 
+                safeItems 
+                |> Seq.map rowRenderer.Invoke 
+                |> String.concat ""
                 
+            html.Append(bodyRows) |> ignore
             html.AppendLine("  </tbody>") |> ignore
 
             // 4. Summary Row Integration Suffix
-            if not (String.IsNullOrEmpty(footerHtml)) then
+            if not (String.IsNullOrEmpty footerHtml) then
                 html.AppendLine("  <tfoot>") |> ignore
                 html.Append(footerHtml) |> ignore
                 html.AppendLine("  </tfoot>") |> ignore
