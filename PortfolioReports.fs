@@ -9,12 +9,13 @@ open System.Linq
 open System.Runtime.InteropServices
 open VanguardLib.Extensions
 
+
 // ==========================================
 // 1. Shared Configurations & Domain Objects
 // ==========================================
 
 /// Expose pre-configured, immutable instances for options
-type InvestmentsReportConfiguration private (title: string) =
+type InvestmentsReportConfiguration (title: string) =
     member this.Title = title
 
     static member ByName = InvestmentsReportConfiguration("Investments Report by Investment Company Name")
@@ -31,75 +32,6 @@ type TransactionsReportConfiguration (title: string) =
 // ==========================================
 
 module GenerateGenericInvestmentReport =
-
-    let private reportCulture = CultureInfo("en-US")
-
-    /// Generates a standardized portfolio report from a structured collection of assets
-    let Generate (
-        sortedDictionary: SortedDictionary<string, Investment>,
-        headers: string[],
-        reportTitle: string,
-        emptyMessage: string) : string =
-        
-        // 1. Guard check handling: Explicitly intercept and encode emptyMessage to pass Scenario A
-        if isNull sortedDictionary || sortedDictionary.Count = 0 then
-            let safeEmptyMessage = WebUtility.HtmlEncode(emptyMessage)
-            HtmlReportLayout.wrapWithTemplate reportTitle $"<p>{safeEmptyMessage}</p>"
-        else
-            // 2. Order-Aware Row Builder Engine
-            let renderer = Func<KeyValuePair<string, Investment>, string>(fun pair ->
-                let investment = pair.Value
-                let row = StringBuilder()
-                row.Append("<tr>") |> ignore
-
-                // Iterate through the actual layout headers sequentially
-                for header in headers do
-                    match header.Trim() with
-                    
-                    | h when h.Equals("Total Value", StringComparison.OrdinalIgnoreCase) ||
-                             h.Equals("Value", StringComparison.OrdinalIgnoreCase) ||
-                             h.Equals("Amount", StringComparison.OrdinalIgnoreCase) ->
-                        let formattedValue = investment.TotalValue.ToString("C", reportCulture)
-                        row.Append($"<td class=\"text-right\">{formattedValue}</td>") |> ignore
-
-                    | h when h.Equals("Shares", StringComparison.OrdinalIgnoreCase) ||
-                             h.Equals("Share Count", StringComparison.OrdinalIgnoreCase) ->
-                        let formattedShares = investment.Shares.ToString("N4", reportCulture)
-                        row.Append($"<td class=\"text-right\">{formattedShares}</td>") |> ignore
-
-                    | h when h.Equals("Price", StringComparison.OrdinalIgnoreCase) ||
-                             h.Equals("Share Price", StringComparison.OrdinalIgnoreCase) ->
-                        let formattedPrice = investment.SharePrice.ToString("C", reportCulture)
-                        row.Append($"<td class=\"text-right\">{formattedPrice}</td>") |> ignore
-
-                    | h when h.Equals("Account", StringComparison.OrdinalIgnoreCase) ||
-                             h.Equals("Account Number", StringComparison.OrdinalIgnoreCase) ->
-                        row.Append($"<td>{WebUtility.HtmlEncode(investment.AccountNumber)}</td>") |> ignore
-
-                    | _ ->
-                        // SECURITY FIX FOR SCENARIO B: 
-                        // If the header matches "Name"/"Symbol"/"Key", OR if it's a fallback text header,
-                        // treat it as the text column descriptor and write the HTML-safe encoded key.
-                        let cleanKey = String.cleanWhitespace pair.Key
-                        row.Append($"<td>{WebUtility.HtmlEncode(cleanKey)}</td>") |> ignore
-
-                row.Append("</tr>\n") |> ignore
-                row.ToString()
-            )
-
-            // 3. Compile table markup strings using the shared rendering components
-            let tableContent = 
-                HtmlTableBuilder.BuildTable<KeyValuePair<string, Investment>>(
-                    sortedDictionary,
-                    headers,
-                    renderer,
-                    emptyMessage,
-                    null
-                )
-
-            HtmlReportLayout.wrapWithTemplate reportTitle tableContent
-
-module GenerateGenericInvestmentReportF =
 
     let private reportCulture = CultureInfo("en-US")
 
@@ -272,78 +204,59 @@ module GenerateInvestmentsReport =
     let private reportCulture = CultureInfo("en-US")
     let private headers = [| "Investment Name"; "Symbol"; "Shares"; "Total Value" |]
 
+    /// Inline formatting helpers to keep the renderer clean and atomic
+    let private formatCurrency (v: decimal) = v.ToString("C", reportCulture)
+    let private formatCount (v: int) = v.ToString(reportCulture)
+    let private formatShares (v: decimal) = v.ToString("N4", reportCulture)
+
+    /// Renders a single typesafe row layout for an investment item
+    let private renderRow (inv: Investment) =
+        let displayName = if isNull inv.InvestmentName then "N/A" else String.cleanWhitespace inv.InvestmentName
+        let displaySymbol = if isNull inv.Symbol then "N/A" else inv.Symbol.Trim().ToUpperInvariant()
+
+        // Pure boolean flags tracking close-to-zero decimal dust boundaries
+        let isZeroShares = Math.Abs(inv.Shares) < 0.00001M
+        let isZeroValue = Math.Abs(inv.TotalValue) < 0.01M
+        let rowStyle = if isZeroShares && isZeroValue then "style=\"background-color: #f8d7da; color: #721c24;\"" else ""
+
+        $"""
+         <tr {rowStyle}>
+           <td>{WebUtility.HtmlEncode(displayName)}</td>
+           <td>{WebUtility.HtmlEncode(displaySymbol)}</td>
+           <td class="text-right">{formatShares inv.Shares}</td>
+           <td class="text-right">{formatCurrency inv.TotalValue}</td>
+         </tr>
+         """
+
     /// Public API exposed via standard .NET parameters for seamless C# library interop
-    let GenerateReport (
-        sortedInvestments: SortedDictionary<string, Investment>,
-        config: InvestmentsReportConfiguration) : string =
-        
+    let GenerateReport (sortedInvestments: SortedDictionary<string, Investment>, config: InvestmentsReportConfiguration) : string =
         let title = config.Title
 
-        // 1. High-performance typesafe null/empty check (No boxing overhead)
         if isNull sortedInvestments || sortedInvestments.Count = 0 then
             HtmlReportLayout.wrapWithTemplate title "<p>No investments available to generate the report.</p>"
         else
-            let sumOfInvestments = sortedInvestments.Values.Sum(fun inv -> inv.TotalValue)
-            
-            let formattedSum = sumOfInvestments.ToString("C", reportCulture)
-            let formattedCount = sortedInvestments.Count.ToString(reportCulture)
+            // 1. Structural aggregate mapping using modern native functional sequence metrics
+            let totalValue = sortedInvestments.Values |> Seq.sumBy (fun inv -> inv.TotalValue)
 
-            // 2. FIXED: Multi-row footer alignment matrix
-            // Row 1: Spans 3 columns, aligns dollar amount under 'Total Value'
-            // Row 2: Spans 2 columns, aligns quantity under 'Shares', leaves final cell blank
+            // 2. High-readability alignment matrices (Shifted out from complex scopes)
             let footerHtml = $"""
                     <tr class="total-row">
                       <td colspan="3">Total value of investments</td>
-                      <td class="text-right">{formattedSum}</td>
+                      <td class="text-right">{formatCurrency totalValue}</td>
                     </tr>
                     <tr class="total-row">
                       <td colspan="2">Total number of investments</td>
-                      <td class="text-right">{formattedCount}</td>
+                      <td class="text-right">{formatCount sortedInvestments.Count}</td>
                       <td></td>
                     </tr>
                 """
 
-            // 3. Robust Explicit Row Renderer
-            let renderer = Func<Investment, string>(fun investment ->
-                // Guard text references and normalize whitespace anomalies (e.g., double space errors)
-                let rawName = if isNull investment.InvestmentName then "N/A" else investment.InvestmentName
-                let displayName = String.cleanWhitespace rawName
-                
-                let displaySymbol = if isNull investment.Symbol then "N/A" else investment.Symbol.Trim().ToUpperInvariant()
-                let currentValue = investment.TotalValue
-
-                // Safe mathematical range evaluations tracking fractional zero/dust bounds
-                let isZeroShares = Math.Abs(investment.Shares) < 0.00001M
-                let isZeroValue = Math.Abs(currentValue) < 0.01M
-
-                let rowStyle = 
-                    if isZeroShares && isZeroValue then 
-                        "style=\"background-color: #f8d7da; color: #721c24;\"" 
-                    else 
-                        ""
-
-                let formattedShares = investment.Shares.ToString("N4", reportCulture)
-                let formattedValue = currentValue.ToString("C", reportCulture)
-
-                $"""
-                     <tr {rowStyle}>
-                       <td>{WebUtility.HtmlEncode(displayName)}</td>
-                       <td>{WebUtility.HtmlEncode(displaySymbol)}</td>
-                       <td class="text-right">{formattedShares}</td>
-                       <td class="text-right">{formattedValue}</td>
-                     </tr>
-                 """
-            )
-
-            // 4. FIX: Cast the ValueCollection to a standardized sequence layout safely 
-            let itemsSource = sortedInvestments.Values |> Seq.cast<Investment>
-
-            // Invoke the structural table builder
+            // 3. Construct the HTML core directly via native typesafe delegate evaluation
             let tableContent = 
                 HtmlTableBuilder.BuildTable<Investment>(
-                    itemsSource,
+                    sortedInvestments.Values, // No Seq.cast needed; Values already implements IEnumerable<Investment>
                     headers,
-                    renderer,
+                    Func<Investment, string>(renderRow),
                     "No investments found.",
                     footerHtml
                 )
@@ -574,9 +487,6 @@ module GenerateListOfSellTransactions =
 module GenerateListOfFees =
 
     let private reportTitle = "List of Fees"
-    
-    // REFINED HEADERS: Removes the redundant "Fee" column label 
-    // and adds the Symbol for quicker scanability.
     let private headers = [| "Settlement Date"; "Investment Name"; "Symbol"; "Amount" |]
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
@@ -592,7 +502,6 @@ module GenerateListOfFees =
 
 module GenerateListOfInterestPayments =
 
-    // Module-level private constants matching your original design rules
     let private reportTitle = "List of Interest Payments"
     let private headers = [| "Settlement Date"; "Investment Name"; "Amount" |]
 
@@ -608,67 +517,28 @@ module GenerateListOfInterestPayments =
             "Total interest payments received"
         )
 
-//module GenerateListOfCashReport =
+module GenerateListOfCashReport =
 
-//    let private reportTitle = "List of Cash"
-    
-//    // FIX: Standardize headers so GenerateGenericInvestmentReport 
-//    // maps them to actual Investment object properties cleanly!
-//    let private headers = [| "Account / Investment Key"; "Total Value" |]
-
-//    /// Public API exposed via standard .NET parameters for seamless C# library interop
-//    let GenerateReport (sortedDictionaryOfCash: SortedDictionary<string, Investment>) : string =
-//        GenerateGenericInvestmentReport.Generate(
-//            sortedDictionaryOfCash,
-//            headers,
-//            reportTitle,
-//            "No cash records found."
-//        )
-
-module GenerateListOfCashReportF =
-
-    let private reportTitle = "List of CashF"
-
-    // Standardized headers for the F# reporting layout engine
+    let private reportTitle = "List of Cash"
     let private headers = [| "Account / Investment Key"; "Total Value" |]
 
     /// Public API accepting an idiomatic F# Map instead of a SortedDictionary
     let GenerateReport (cashMap: Map<string, Investment>) : string =
-        GenerateGenericInvestmentReportF.Generate(
+        GenerateGenericInvestmentReport.Generate(
             cashMap,
             headers,
             reportTitle,
             "No cash records found."
         )
 
-//module GenerateListOfTBillsReport =
+module GenerateListOfTBillsReport =
 
-//    let private reportTitle = "List of TBills"
-    
-//    // FIX: Standardize headers so GenerateGenericInvestmentReport 
-//    // maps them to actual Investment object properties cleanly!
-//    let private headers = [| "T-Bill Key / Description"; "Total Value" |]
-
-//    /// Public API exposed via standard .NET parameters for seamless C# library interop
-//    let GenerateReport (sortedDictionaryOfTBills: SortedDictionary<string, Investment>) : string =
-//        GenerateGenericInvestmentReport.Generate(
-//            sortedDictionaryOfTBills,
-//            headers,
-//            reportTitle,
-//            "No T-Bill records found."
-//        )
-
-module GenerateListOfTBillsReportF =
-
-    let private reportTitle = "List of TBillsF"
-    
-    // FIX: Standardize headers so GenerateGenericInvestmentReport 
-    // maps them to actual Investment object properties cleanly!
+    let private reportTitle = "List of TBills"
     let private headers = [| "T-Bill Key / Description"; "Total Value" |]
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
     let GenerateReport (tBillsMap: Map<string, Investment>) : string =
-        GenerateGenericInvestmentReportF.Generate(
+        GenerateGenericInvestmentReport.Generate(
             tBillsMap,
             headers,
             reportTitle,
@@ -678,7 +548,6 @@ module GenerateListOfTBillsReportF =
 
 module GenerateListOfCorpActions =
 
-    // Module-level private constant matching your original design rules
     let private reportTitle = "List of Corporate Actions"
 
     // Public API exposed via standard .NET tuple parameters for seamless C# library interop
@@ -696,9 +565,6 @@ module GenerateListOfCorpActions =
 module GenerateListOfDividendsReport =
 
     let private reportTitle = "List of Dividends"
-    
-    // REFINED HEADERS: Removes the redundant "Dividend" label column 
-    // and adds "Shares" so users can see the asset quantity tracking.
     let private headers = [| "Settlement Date"; "Investment Name"; "Shares"; "Amount" |]
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
