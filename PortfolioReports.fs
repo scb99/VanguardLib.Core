@@ -266,6 +266,18 @@ module GenerateInvestmentsReport =
 module GenerateDividendTransactionsReport =
 
     let private reportCulture = CultureInfo("en-US")
+    let private dividendTransactionType = TransactionType.Dividend.DisplayText
+    let private notAvailable = "N/A"
+    let private currencyFormat = "C"
+    let private maxSymbolLength = 5
+    let private dateFormat = "yyyy-MM-dd"
+    let private noTransactionsMessage = "No transactions."
+    let private noDataAvailableMessage = "No data available."
+    let private noActiveDividendTransactionsMessage = "No active dividend transactions found matching company names."
+
+    /// Returns value unless it is null, in which case fallback is returned.
+    let private orDefault (fallback: string) (value: string) : string =
+        if isNull (box value) then fallback else value
 
     /// Build a robust bidirectional map using Symbol as the ultimate source of truth,
     /// then route each dividend transaction into the correct group.
@@ -290,7 +302,7 @@ module GenerateDividendTransactionsReport =
             // Scan and route transactions
             for transactionList in sortedDictionaryOfTransactions do
                 for transaction in transactionList.Value do
-                    if transaction.TransactionType = "Dividend" && not (String.IsNullOrEmpty transaction.Symbol) then
+                    if transaction.TransactionType = dividendTransactionType && not (String.IsNullOrEmpty transaction.Symbol) then
                         let unifiedName =
                             match symbolToMasterNameMap.TryGetValue(transaction.Symbol) with
                             | true, name -> name
@@ -304,7 +316,7 @@ module GenerateDividendTransactionsReport =
                             let investmentKey =
                                 match firstKey with
                                 | None -> transaction.Symbol
-                                | Some key when key.Length <= 5 -> transaction.Symbol
+                                | Some key when key.Length <= maxSymbolLength -> transaction.Symbol
                                 | Some _ -> unifiedName
 
                             let result = Investment.TryCreate("0", unifiedName, transaction.Symbol, 0.0m, 0.0m, 0.0m)
@@ -330,13 +342,22 @@ module GenerateDividendTransactionsReport =
             |> Seq.filter (fun t -> t.Value.Count > 0)
             |> Seq.toList
 
+        // Precompute a lookup by InvestmentName/Symbol so findInvestment is O(1) instead of scanning all investments per group
+        let investmentByNameOrSymbol = Dictionary<string, Investment>()
+        for investment in sortedDictionaryOfInvestments.Values do
+            if not (String.IsNullOrEmpty investment.InvestmentName) then
+                investmentByNameOrSymbol.TryAdd(investment.InvestmentName, investment) |> ignore
+            if not (String.IsNullOrEmpty investment.Symbol) then
+                investmentByNameOrSymbol.TryAdd(investment.Symbol, investment) |> ignore
+
         // Helper function to resolve an investment object by searching both keys and internal values
         let findInvestment (groupKey: string) : Investment option =
             match sortedDictionaryOfInvestments.TryGetValue(groupKey) with
             | true, investment -> Some investment
             | false, _ ->
-                sortedDictionaryOfInvestments.Values
-                |> Seq.tryFind (fun inv -> inv.InvestmentName = groupKey || inv.Symbol = groupKey)
+                match investmentByNameOrSymbol.TryGetValue(groupKey) with
+                | true, investment -> Some investment
+                | false, _ -> None
 
         // Force correct sorting order before generating HTML
         activeGroups <-
@@ -348,7 +369,7 @@ module GenerateDividendTransactionsReport =
             else
                 activeGroups |> List.sortBy (fun g -> g.Key)
 
-        if activeGroups.Length > 0 then
+        if not (List.isEmpty activeGroups) then
             for transactionGroup in activeGroups do
                 match findInvestment transactionGroup.Key with
                 | None ->
@@ -356,8 +377,8 @@ module GenerateDividendTransactionsReport =
                         sprintf "<h3 class=\"section-header\" style=\"color: #c0392b;\">NAME NOT FOUND: %s</h3>"
                             (WebUtility.HtmlEncode(transactionGroup.Key))) |> ignore
                 | Some investment ->
-                    let displaySymbol = if isNull (box investment.Symbol) then "N/A" else investment.Symbol
-                    let displayName = if isNull (box investment.InvestmentName) then transactionGroup.Key else investment.InvestmentName
+                    let displaySymbol = orDefault notAvailable investment.Symbol
+                    let displayName = orDefault transactionGroup.Key investment.InvestmentName
 
                     let sectionTitle =
                         if config.Title = TransactionsReportConfiguration.BySymbol.Title then
@@ -370,16 +391,16 @@ module GenerateDividendTransactionsReport =
                     let rowRenderer (tx: Transaction) =
                         sprintf
                             "<tr>\n  <td>%s</td>\n  <td>%s</td>\n  <td>%s</td>\n  <td class=\"text-right\">%s</td>\n</tr>\n"
-                            (tx.TradeDate.ToString("yyyy-MM-dd"))
+                            (tx.TradeDate.ToString(dateFormat))
                             tx.TransactionType
-                            (if isNull (box tx.Symbol) then "N/A" else tx.Symbol)
-                            ((decimal tx.PrincipalAmount).ToString("C", reportCulture))
+                            (orDefault notAvailable tx.Symbol)
+                            ((decimal tx.PrincipalAmount).ToString(currencyFormat, reportCulture))
 
                     let footerHtml =
                         sprintf
                             "<tr class=\"total-row\">\n  <td colspan=\"3\">Subtotal for %s</td>\n  <td class=\"text-right\">%s</td>\n</tr>\n"
                             (WebUtility.HtmlEncode(displayName))
-                            ((transactionGroup.Value |> Seq.sumBy (fun tx -> decimal tx.PrincipalAmount)).ToString("C", reportCulture))
+                            ((transactionGroup.Value |> Seq.sumBy (fun tx -> decimal tx.PrincipalAmount)).ToString(currencyFormat, reportCulture))
 
                     // Delegate the core table grid generation to the utility class
                     let tableHtml =
@@ -387,7 +408,7 @@ module GenerateDividendTransactionsReport =
                             transactionGroup.Value,
                             headers,
                             Func<Transaction, string>(rowRenderer),
-                            "No transactions.",
+                            noTransactionsMessage,
                             footerHtml)
 
                     // Append the formatted section title followed by the generated table code
@@ -407,25 +428,27 @@ module GenerateDividendTransactionsReport =
                     Func<decimal, string>(fun total ->
                         sprintf
                             "<tr class=\"total-row\">\n  <td style=\"min-width: 430px;\">Total dividends received:</td>\n  <td class=\"text-right\">%s</td>\n</tr>\n"
-                            (total.ToString("C", reportCulture))),
-                    "No data available.",
+                            (total.ToString(currencyFormat, reportCulture))),
+                    noDataAvailableMessage,
                     null)
 
             html.AppendLine(grandTotalTableHtml: string) |> ignore
         else
-            html.AppendLine("<p>No active dividend transactions found matching company names.</p>") |> ignore
+            html.AppendLine(sprintf "<p>%s</p>" noActiveDividendTransactionsMessage) |> ignore
 
         html.ToString()
 
+    /// Generates the full HTML dividend transactions report, grouped by investment,
+    /// including per-group subtotals and a grand total of dividends received.
     let GenerateReport
         (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>,
          sortedDictionaryOfInvestments: SortedDictionary<string, Investment>,
          config: TransactionsReportConfiguration) : string =
 
         if isNull (box sortedDictionaryOfTransactions) then
-            nullArg "sortedDictionaryOfTransactions"
+            nullArg (nameof sortedDictionaryOfTransactions)
         if isNull (box sortedDictionaryOfInvestments) then
-            nullArg "sortedDictionaryOfInvestments"
+            nullArg (nameof sortedDictionaryOfInvestments)
 
         let sortedDictionaryOfDividendTransactions = SortedDictionary<string, List<Transaction>>()
 
@@ -446,81 +469,100 @@ module GenerateDistributionsReport =
 
     let private reportTitle = "Distributions"
     let private headers = [| "Settlement Date"; "Amount" |]
+    let private transactionTypeFilter = TransactionType.Distribution.DisplayText
+    let private emptyMessage = "No distributions found."
+    let private footerLabel = "Total amount of distributions"
 
     let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
-        // Pass arguments strictly by position to eliminate the FS0001 tuple error
         GenerateGenericTransactionReport.Generate(
             sortedDictionaryOfTransactions,
-            "Distribution",
+            transactionTypeFilter,
             reportTitle,
-            "No distributions found.",
+            emptyMessage,
             headers,
-            "Total amount of distributions"
+            footerLabel
         )
 
 module GenerateListOfBuyTransactions =
+
+    let private reportTitle = "List of Buy Transactions"
+    let private transactionTypeFilter = TransactionType.Buy.DisplayText
+    let private emptyMessage = "No buy transactions found."
+    let private footerLabel = "Total Amount Deployed"
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
     let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
         GenerateGenericTransactionReport.Generate(
             sortedDictionaryOfTransactions,
-            "Buy",
-            "List of Buy Transactions",
-            "No buy transactions found.",
+            transactionTypeFilter,
+            reportTitle,
+            emptyMessage,
             null, // Reuses default layout: Type, Date, Name, Shares, Amount
-            "Total Amount Deployed" // Provides explicit alignment layout for the footer sum
+            footerLabel // Provides explicit alignment layout for the footer sum
         )
 
 module GenerateListOfSellTransactions =
+
+    let private reportTitle = "List of Sell Transactions"
+    let private transactionTypeFilter = TransactionType.Sell.DisplayText
+    let private emptyMessage = "No sell transactions found."
+    let private footerLabel = "Total Capital Realized"
 
     // Public API exposed via standard .NET parameters for seamless C# library interop
     let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
         GenerateGenericTransactionReport.Generate(
             sortedDictionaryOfTransactions,
-            "Sell",
-            "List of Sell Transactions",
-            "No sell transactions found.",
-            null,                       // Reuses default headers layout
-            "Total Capital Realized"    // Computes and renders cumulative sell totals
+            transactionTypeFilter,
+            reportTitle,
+            emptyMessage,
+            null,          // Reuses default headers layout
+            footerLabel    // Computes and renders cumulative sell totals
         )
 
 module GenerateListOfFees =
 
     let private reportTitle = "List of Fees"
     let private headers = [| "Settlement Date"; "Investment Name"; "Symbol"; "Amount" |]
+    let private transactionTypeFilter = TransactionType.Fee.DisplayText
+    let private emptyMessage = "No fee transactions found."
+    let private footerLabel = "Total fees paid"
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
     let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
         GenerateGenericTransactionReport.Generate(
             sortedDictionaryOfTransactions,
-            "Fee",
+            transactionTypeFilter,
             reportTitle,
-            "No fee transactions found.",
+            emptyMessage,
             headers,
-            "Total fees paid"
+            footerLabel
         )
 
 module GenerateListOfInterestPayments =
 
     let private reportTitle = "List of Interest Payments"
     let private headers = [| "Settlement Date"; "Investment Name"; "Amount" |]
+    let private transactionTypeFilter = TransactionType.Interest.DisplayText
+    let private emptyMessage = "No interest payment transactions found."
+    let private footerLabel = "Total interest payments received"
 
     // Public API exposed via standard .NET tuple parameters for seamless C# library interop
     let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
         // Pass arguments strictly by position to eliminate the FS0001 tuple error
         GenerateGenericTransactionReport.Generate(
             sortedDictionaryOfTransactions,
-            "Interest",
+            transactionTypeFilter,
             reportTitle,
-            "No interest payment transactions found.",
+            emptyMessage,
             headers,
-            "Total interest payments received"
+            footerLabel
         )
 
 module GenerateListOfCashReport =
 
     let private reportTitle = "List of Cash"
     let private headers = [| "Account / Investment Key"; "Total Value" |]
+    let private emptyMessage = "No cash records found."
 
     /// Public API accepting an idiomatic F# Map instead of a SortedDictionary
     let GenerateReport (cashMap: Map<string, Investment>) : string =
@@ -528,13 +570,14 @@ module GenerateListOfCashReport =
             cashMap,
             headers,
             reportTitle,
-            "No cash records found."
+            emptyMessage
         )
 
 module GenerateListOfTBillsReport =
 
     let private reportTitle = "List of TBills"
     let private headers = [| "T-Bill Key / Description"; "Total Value" |]
+    let private emptyMessage = "No T-Bill records found."
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
     let GenerateReport (tBillsMap: Map<string, Investment>) : string =
@@ -542,22 +585,24 @@ module GenerateListOfTBillsReport =
             tBillsMap,
             headers,
             reportTitle,
-            "No T-Bill records found."
+            emptyMessage
         )
 
 
 module GenerateListOfCorpActions =
 
     let private reportTitle = "List of Corporate Actions"
+    let private transactionTypeFilter = TransactionType.CorpActionRedemption.DisplayText
+    let private emptyMessage = "No corporate action transactions found."
 
     // Public API exposed via standard .NET tuple parameters for seamless C# library interop
     let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
         // Pass arguments strictly by position and supply trailing nulls to clear the FS0001 error
         GenerateGenericTransactionReport.Generate(
             sortedDictionaryOfTransactions,
-            "Corp Action (Redemption)",
+            transactionTypeFilter,
             reportTitle,
-            "No corporate action transactions found.",
+            emptyMessage,
             null,
             null
         )
@@ -566,14 +611,17 @@ module GenerateListOfDividendsReport =
 
     let private reportTitle = "List of Dividends"
     let private headers = [| "Settlement Date"; "Investment Name"; "Shares"; "Amount" |]
+    let private transactionTypeFilter = TransactionType.Dividend.DisplayText
+    let private emptyMessage = "No dividend transactions found."
+    let private footerLabel = "Total dividends received"
 
     /// Public API exposed via standard .NET parameters for seamless C# library interop
     let GenerateReport (sortedDictionaryOfTransactions: SortedDictionary<string, List<Transaction>>) : string =
         GenerateGenericTransactionReport.Generate(
             sortedDictionaryOfTransactions,
-            "Dividend",
+            transactionTypeFilter,
             reportTitle,
-            "No dividend transactions found.",
+            emptyMessage,
             headers,
-            "Total dividends received"
+            footerLabel
         )

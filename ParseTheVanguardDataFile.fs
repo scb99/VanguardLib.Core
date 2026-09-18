@@ -4,29 +4,6 @@ open System
 open System.IO
 open System.Collections.Generic
 
-type TransactionType =
-    | Buy
-    | CorpActionRedemption
-    | Distribution
-    | Dividend
-    | Fee
-    | Interest
-    | Sell
-
-    /// Returns the human-readable string for the UI
-    member this.DisplayText =
-        match this with
-        | Buy -> "Buy"
-        | CorpActionRedemption -> "Corp Action (Redemption)"
-        | Distribution -> "Distribution"
-        | Dividend -> "Dividend"
-        | Fee -> "Fee"
-        | Interest -> "Interest"
-        | Sell -> "Sell"
-
-    static member All = 
-        [ Buy; CorpActionRedemption; Distribution; Dividend; Fee; Interest; Sell ]
-
 type SlicedFile = {
     InvestmentLines: string[]
     TransactionLines: string[]

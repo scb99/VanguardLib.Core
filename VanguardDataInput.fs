@@ -4,14 +4,6 @@ open System
 open System.Globalization
 open VanguardLib.Extensions
 
-/// Clean, unified domain data container using standard immutable F# Maps
-type VanguardProcessedData = {
-    InvestmentsByCompanySymbol : Map<string, Investment>
-    InvestmentsByCompanyName   : Map<string, Investment>
-    TBills                     : Map<string, Investment>
-    Cash                       : Map<string, Investment>
-}
-
 module ProcessInvestmentsPartOfVanguardDataFile =
 
     /// Safely parses an individual line. Returns None if data is corrupt or sized wrong.

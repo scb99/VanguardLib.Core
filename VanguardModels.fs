@@ -3,6 +3,32 @@
 open System
 open Validation // Opens the operators (<!>), (<*>), and check function
 
+/// Represents the category of a Vanguard transaction (e.g. a buy, sell, or dividend event).
+/// Serves as the single source of truth for transaction-type identification, display text,
+/// and filtering throughout the application, replacing hardcoded string literals.
+type TransactionType =
+    | Buy
+    | CorpActionRedemption
+    | Distribution
+    | Dividend
+    | Fee
+    | Interest
+    | Sell
+
+    /// Returns the human-readable string for the UI
+    member this.DisplayText =
+        match this with
+        | Buy -> "Buy"
+        | CorpActionRedemption -> "Corp Action (Redemption)"
+        | Distribution -> "Distribution"
+        | Dividend -> "Dividend"
+        | Fee -> "Fee"
+        | Interest -> "Interest"
+        | Sell -> "Sell"
+
+    static member All = 
+        [ Buy; CorpActionRedemption; Distribution; Dividend; Fee; Interest; Sell ]
+
 /// Represents an immutable investment holding within a portfolio.
 type Investment =
     { 
@@ -138,3 +164,11 @@ type Transaction =
         <*> checkNetAmount
         <*> checkAccruedInterest
         <*> checkAccountType
+
+/// Represents a clean, unified domain data container using standard immutable F# Maps
+type VanguardProcessedData = {
+    InvestmentsByCompanySymbol : Map<string, Investment>
+    InvestmentsByCompanyName   : Map<string, Investment>
+    TBills                     : Map<string, Investment>
+    Cash                       : Map<string, Investment>
+}

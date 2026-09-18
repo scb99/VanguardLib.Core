@@ -21,13 +21,13 @@
     <Compile Include="HtmlReportComponents.fs" />   
     <Compile Include="Validatiomn.fs" />   
     <Compile Include="VanguardModels.fs" />   
-    <Compile Include="VanguardDataIngestion.fs" />   
     <Compile Include="VanguardDataInput.fs" />   
     <Compile Include="PortfolioInitializer.fs" />   
     <Compile Include="PortfolioReports.fs" />   
     <Compile Include="ParseVanguardDataFile.fs" />   
     <Compile Include="ParseTheVanguardDataFile.fs" />   
-    <Compile Include="DropDownItems.fs" />
+    <Compile Include="DropDownItems.fs" />   
+    <Compile Include="ReportsEngine.fs" />
   </ItemGroup>
 
 </Project>
