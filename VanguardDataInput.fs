@@ -8,18 +8,8 @@ module ProcessInvestmentsPartOfVanguardDataFile =
 
     /// Safely parses an individual line. Returns None if data is corrupt or sized wrong.
     let private parseInvestment (currentLine: string) : Investment option =
-        let parts = currentLine.Split(',')
-        if parts.Length < 6 then 
-            None
-        else
-            // Safely extracts indexes to fully handle rows with 6, 7, or more columns
-            let accNum     = parts.[0]
-            let name       = parts.[1]
-            let sym        = parts.[2]
-            let sharesStr  = parts.[3]
-            let priceStr   = parts.[4]
-            let totalStr   = parts.[5]
-
+        match currentLine.Split(',') with
+        | [| accNum; name; sym; sharesStr; priceStr; totalStr; _ |] ->
             match Investment.TryCreate(
                 accountNumber  = accNum,
                 investmentName = name,
@@ -29,7 +19,8 @@ module ProcessInvestmentsPartOfVanguardDataFile =
                 totalValue     = String.toCleanDecimal totalStr
             ) with
             | Success value -> Some value
-            | Failure _     -> None // Drop corrupt rows immediately to prevent bad states
+            | Failure _     -> None
+        | _ -> None
 
     let ProcessData (fileLines: seq<string>) : VanguardProcessedData =
         
@@ -85,33 +76,33 @@ module ProcessTransactionsPartOfVanguardDataFile =
         if String.IsNullOrWhiteSpace(currentLine) then
             None
         else
-            let parts = currentLine.Split(',')
-            if parts.Length < 14 then
-                None
-            else
-                // Defend against Date format crashes using explicit pattern matches over out-parameters
-                match DateOnly.TryParse(parts.[1], CultureInfo.InvariantCulture), 
-                      DateOnly.TryParse(parts.[2], CultureInfo.InvariantCulture) with
+            match currentLine.Split(',') with
+            | [| accNum; tradeDateStr; settleDateStr; txType; txDesc; 
+                 name; sym; shares; price; principal; fees; net; interest; accType; _ |] ->
+                
+                match DateOnly.TryParse(tradeDateStr, CultureInfo.InvariantCulture), 
+                      DateOnly.TryParse(settleDateStr, CultureInfo.InvariantCulture) with
                 | (true, tradeDate), (true, settlementDate) ->
                     match Transaction.TryCreate(
-                        accountNumber          = parts.[0],
+                        accountNumber          = accNum,
                         tradeDate              = tradeDate,
                         settlementDate         = settlementDate,
-                        transactionType        = parts.[3],
-                        transactionDescription = parts.[4],
-                        investmentName         = parts.[5],
-                        symbol                 = parts.[6],
-                        shares                 = String.toCleanDecimal parts.[7],
-                        sharePrice             = String.toCleanDecimal parts.[8],
-                        principalAmount        = String.toCleanDecimal parts.[9],
-                        commissionAndFees      = String.toCleanDecimal parts.[10],
-                        netAmount              = String.toCleanDecimal parts.[11],     
-                        accruedInterest        = String.toCleanDecimal parts.[12],
-                        accountType            = parts.[13]
+                        transactionType        = txType,
+                        transactionDescription = txDesc,
+                        investmentName         = name,
+                        symbol                 = sym,
+                        shares                 = String.toCleanDecimal shares,
+                        sharePrice             = String.toCleanDecimal price,
+                        principalAmount        = String.toCleanDecimal principal,
+                        commissionAndFees      = String.toCleanDecimal fees,
+                        netAmount              = String.toCleanDecimal net,     
+                        accruedInterest        = String.toCleanDecimal interest,
+                        accountType            = accType
                     ) with
                     | Success value -> Some value
                     | Failure _     -> None
                 | _ -> None
+            | _ -> None
 
     let ProcessData (fileLines: seq<string>, initialTransactions: Map<string, Transaction list>) : Map<string, Transaction list> =
         
